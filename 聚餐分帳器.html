@@ -43,6 +43,10 @@
     .divider { height: 1px; margin: 24px 0 17px; background: #e9bb8c; }
     .detail { display: flex; justify-content: space-between; gap: 14px; margin: 9px 0; color: #735b4a; font-size: 14px; }
     .detail.total { margin-top: 14px; padding-top: 14px; border-top: 1px solid #e9bb8c; color: #392b2b; font-weight: 800; }
+    .copy-button { width: 100%; min-height: 48px; margin-top: 22px; border: 0; border-radius: 14px; background: #b94e2b; color: #fff; font: inherit; font-weight: 800; cursor: pointer; }
+    .copy-button:hover { background: #9d3e22; }
+    .copy-button:focus-visible { outline: 3px solid #b94e2b; outline-offset: 3px; }
+    .copy-status { min-height: 21px; margin: 8px 0 0; color: #8a491f; font-size: 13px; text-align: center; }
     .footnote { margin: 22px 3px 0; color: #718278; font-size: 13px; line-height: 1.5; text-align: center; }
     @media (max-width: 720px) { .workspace { grid-template-columns: 1fr; } header { margin-bottom: 25px; } }
     @media (max-width: 360px) { .card, .result { padding: 20px; } .share strong { font-size: 24px; } }
@@ -83,6 +87,8 @@
       <div class="detail"><span>帳單金額</span><span id="bill">1,000 元</span></div>
       <div class="detail"><span>服務費</span><span id="fee">0 元</span></div>
       <div class="detail total"><span>應付總額</span><span id="total">1,000 元</span></div>
+      <button id="copyButton" class="copy-button" type="button">複製分帳明細</button>
+      <p id="copyStatus" class="copy-status" role="status" aria-live="polite"></p>
       </section>
     </div>
     <p class="footnote">所有計算都在這個網頁內完成；不需網路、登入或儲存資料。</p>
@@ -93,9 +99,12 @@
     const serviceInput = document.getElementById('service');
     const result = document.getElementById('result');
     const error = document.getElementById('error');
+    const copyButton = document.getElementById('copyButton');
+    const copyStatus = document.getElementById('copyStatus');
     const fmt = number => new Intl.NumberFormat('zh-TW').format(number) + ' 元';
 
     function update() {
+      copyStatus.textContent = '';
       const amount = Number(amountInput.value);
       const people = Number(peopleInput.value);
       let message = '';
@@ -128,6 +137,42 @@
     }
     const fmtCount = number => new Intl.NumberFormat('zh-TW').format(number);
     [amountInput, peopleInput, serviceInput].forEach(input => input.addEventListener('input', update));
+    copyButton.addEventListener('click', async () => {
+      const lines = [
+        '聚餐分帳明細',
+        `帳單金額：${document.getElementById('bill').textContent}`,
+        `服務費：${document.getElementById('fee').textContent}`,
+        `應付總額：${document.getElementById('total').textContent}`,
+        `付錢的人：${document.getElementById('payer').textContent}`
+      ];
+      if (!document.getElementById('othersRow').hidden) {
+        lines.push(`${document.getElementById('othersName').textContent}：${document.getElementById('others').textContent}`);
+      }
+      lines.push(document.getElementById('remainderNote').textContent);
+      const summary = lines.join('\n');
+      try {
+        if (navigator.clipboard && window.isSecureContext) {
+          await navigator.clipboard.writeText(summary);
+        } else {
+          const temporary = document.createElement('textarea');
+          temporary.value = summary;
+          temporary.style.position = 'fixed';
+          temporary.style.opacity = '0';
+          document.body.appendChild(temporary);
+          let copied;
+          try {
+            temporary.select();
+            copied = document.execCommand('copy');
+          } finally {
+            temporary.remove();
+          }
+          if (!copied) throw new Error('Copy command failed');
+        }
+        copyStatus.textContent = '已複製，可以貼到群組了！';
+      } catch {
+        copyStatus.textContent = '複製失敗，請手動選取分帳結果。';
+      }
+    });
     update();
   </script>
 </body>
